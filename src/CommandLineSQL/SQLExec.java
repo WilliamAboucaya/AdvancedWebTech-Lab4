@@ -62,7 +62,7 @@ public class SQLExec {
 			System.out.print("|" + metaData.getColumnName(i));
 		}
 		System.out.println("|");
-		System.out.println("———————————————————————————————————————————————————————");
+		System.out.println("---------------------------------------------");
 		
 		while (result.next()) {
 			for (int i = 1 ; i <= columnCount ; i++) {
