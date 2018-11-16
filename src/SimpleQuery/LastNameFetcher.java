@@ -36,6 +36,7 @@ public class LastNameFetcher {
 				System.out.println(lastNames.getString("last_name"));
 			}
 			
+			connection.close();
 		} catch (SQLException e) {
 			System.err.println("Veuillez vous assurer que le fichier db.properties est configuré de manière à fonctionner avec votre base de données");
 		} catch (Exception e) {

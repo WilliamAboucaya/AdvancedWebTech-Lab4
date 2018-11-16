@@ -39,6 +39,7 @@ public class SQLExec {
 				System.out.println(statement.executeUpdate(query) + " row(s) updated");
 			}
 			
+			connection.close();
 		} catch (SQLException e) {
 			System.err.println("Veuillez vous assurer que la syntaxe de votre requète est correcte et que le fichier db.properties est configuré de manière à fonctionner avec votre base de données");
 			e.printStackTrace();
