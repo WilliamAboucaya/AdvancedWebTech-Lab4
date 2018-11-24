@@ -1,8 +1,6 @@
 package reverseEngineering;
 
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -56,5 +54,46 @@ public class Table {
 			if (column.isPk()) return column;
 		}
 		return null;
+	}
+	
+	public String toTableSqlString() {
+		StringBuilder tableScript = new StringBuilder("CREATE TABLE ");
+		tableScript .append(getName())
+					.append(" (");
+		
+		for (Column column : getColumns()) {
+			tableScript.append(column.toSqlString());
+		}
+		
+		Column primary = getPrimaryKey();
+		
+		if (primary != null) {
+			tableScript .append("\nPRIMARY KEY (")
+						.append(primary.getName())
+						.append("),");
+		}
+		
+		tableScript.delete(tableScript.length() - 1, tableScript.length());
+		tableScript.append("\n);\n");
+		
+		return(tableScript.toString());
+	}
+	
+	public String toSqlFKScript() {
+		StringBuilder foreignKeysScript = new StringBuilder("");
+		
+		for (Column column : getColumns()) {
+			if (column.isFk()) {
+				foreignKeysScript.append("ALTER TABLE ")
+								 .append(getName())
+								 .append(" ADD FOREIGN KEY (")
+								 .append(column.getName())
+								 .append(") REFERENCES ")
+								 .append(column.getFkReference())
+								 .append(";\n\n");
+			}
+		}
+		
+		return(foreignKeysScript.toString());
 	}
 }

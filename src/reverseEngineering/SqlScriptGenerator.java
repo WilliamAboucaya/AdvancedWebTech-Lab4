@@ -8,9 +8,7 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
@@ -28,18 +26,11 @@ public class SqlScriptGenerator {
 			
 			Properties properties = configReader(new File(args[0]));
 			
-			String url = properties.getProperty("url");
-			
 			Class.forName(properties.getProperty("driver"));
 			
-			Connection connection = DriverManager.getConnection(url, properties);
-			DatabaseMetaData metaData = connection.getMetaData();
-			
-			Set<Table> db = fetchDatabaseArchitecture(metaData);
+			Set<Table> db = fetchDatabaseArchitecture(properties);
 			
 			writeSQLScript(db, args[1]);
-			
-			connection.close();
 			
 			System.out.println("Script successfuly generated on " + args[1]);
 		} catch (SQLException e) {
@@ -56,51 +47,15 @@ public class SqlScriptGenerator {
 		return configuration;
 	}
 	
-	protected static Set<Table> fetchDatabaseArchitecture(DatabaseMetaData metaData) throws SQLException {
+	protected static Set<Table> fetchDatabaseArchitecture(Properties properties) throws SQLException {
 		Set<Table> db = new HashSet<>();
+		String url = properties.getProperty("url");
 		
-		ResultSet tableRs = metaData.getTables(null, null, "%", new String[]{"TABLE"});
+		Connection connection = DriverManager.getConnection(url, properties);
+		DatabaseMetaData metaData = connection.getMetaData();
 		
-		while (tableRs.next()) {
-			String tableName = tableRs.getString("TABLE_NAME");
-			Table table = new Table(tableName);
-			
-			ResultSet columnRs = metaData.getColumns(null, null, tableName, "%");
-			ResultSet pkRs = metaData.getPrimaryKeys(null, null, tableName);
-			ResultSet fkRs = metaData.getImportedKeys(null, null, tableName);
-			
-			while (columnRs.next()) {
-				Column column = new Column(columnRs.getString("COLUMN_NAME"));
-				if(columnRs.getString("TYPE_NAME").equals("CHAR") || columnRs.getString("TYPE_NAME").equals("BINARY") || columnRs.getString("TYPE_NAME").equals("VARCHAR") || columnRs.getString("TYPE_NAME").equals("VARBINARY")) {
-					column.setType(columnRs.getString("TYPE_NAME") + "(" + columnRs.getString("COLUMN_SIZE") + ")");
-				} else if (columnRs.getString("TYPE_NAME").equals("ENUM") || columnRs.getString("TYPE_NAME").equals("SET")) {
-					Statement describeStmt = metaData.getConnection().createStatement();
-					ResultSet describeRs = describeStmt.executeQuery("DESCRIBE " + table.getName() + " " + column.getName() + ";");
-					
-					describeRs.next();
-					
-					column.setType(describeRs.getString(2));
-				} else {
-					column.setType(columnRs.getString("TYPE_NAME"));
-				}
-				column.setIndex(columnRs.getInt("ORDINAL_POSITION"));
-				column.setNullable(columnRs.getString("IS_NULLABLE").equals("YES") ? true : false);
-				
-				table.addColumn(column);
-			}
-			
-			while (pkRs.next()) {
-				table.getColumnByName(pkRs.getString("COLUMN_NAME")).setPk(true);
-			}
-			
-			while (fkRs.next()) {
-				Column column = table.getColumnByName(fkRs.getString("FKCOLUMN_NAME"));
-				column.setFk(true);
-				column.setFkReference(fkRs.getString("PKTABLE_NAME") + "(" + fkRs.getString("PKCOLUMN_NAME") + ")");
-			}
-			
-			db.add(table);
-		}
+		TableFactory.createTablesFromMetadata(metaData, db);
+		connection.close();
 		
 		return db;
 	}
@@ -109,52 +64,13 @@ public class SqlScriptGenerator {
 		try (PrintWriter pw = new PrintWriter(new FileWriter(outputFileName))){
 			StringBuilder foreignKeysScript = new StringBuilder("");
 	    	for (Table table : db) {
-				StringBuilder tableScript = new StringBuilder("CREATE TABLE ");
-				tableScript .append(table.getName())
-							.append(" (");
-				
-				for (Column column : table.getColumns()) {
-					tableScript .append("\n")
-								.append(column.getName())
-								.append(" ")
-								.append(column.getType());
-					
-					if (column.isUnique()) {
-						tableScript .append(" UNIQUE");
-					}
-					
-					if (!column.isNullable()) {
-						tableScript .append(" NOT NULL");
-					}
-					tableScript.append(",");
-					
-					if (column.isFk()) {
-						foreignKeysScript.append("ALTER TABLE ")
-										 .append(table.getName())
-										 .append(" ADD FOREIGN KEY (")
-										 .append(column.getName())
-										 .append(") REFERENCES ")
-										 .append(column.getFkReference())
-										 .append(";\n\n");
-					}
-				}
-				
-				Column primary = table.getPrimaryKey();
-				
-				if (primary != null) {
-					tableScript .append("\nPRIMARY KEY (")
-								.append(primary.getName())
-								.append("),");
-				}
-				
-				tableScript.delete(tableScript.length() - 1, tableScript.length());
-				tableScript.append("\n);\n");
-				
-				pw.println(tableScript.toString());
+	    		foreignKeysScript.append(table.toSqlFKScript());
+	    		
+				pw.println(table.toTableSqlString());
 				pw.flush();
 			}
 	    	
-	    	pw.print(foreignKeysScript);
+	    	pw.print(foreignKeysScript.toString());
 	    	pw.flush();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

@@ -6,6 +6,10 @@ public class Column {
 	
 	private String type;
 	
+	private int size;
+	
+	private int decimalDigits;
+	
 	private int index;
 	
 	private boolean unique;
@@ -18,8 +22,7 @@ public class Column {
 	
 	private String fkReference;
 
-	public Column(String name) {
-		this.name = name;
+	public Column() {
 	}
 	
 	public String getName() {
@@ -36,6 +39,22 @@ public class Column {
 
 	public void setType(String type) {
 		this.type = type;
+	}
+	
+	public int getSize() {
+		return size;
+	}
+
+	public void setSize(int size) {
+		this.size = size;
+	}
+
+	public int getDecimalDigits() {
+		return decimalDigits;
+	}
+
+	public void setDecimalDigits(int decimalDigits) {
+		this.decimalDigits = decimalDigits;
 	}
 
 	public int getIndex() {
@@ -84,5 +103,42 @@ public class Column {
 
 	public void setFkReference(String fkReference) {
 		this.fkReference = fkReference;
+	}
+	
+	public String toSqlString() {
+		StringBuilder columnScript = new StringBuilder("");
+		columnScript.append("\n")
+					.append(getName())
+					.append(" ")
+					.append(getType());
+		switch(type) {
+			case "CHAR":
+			case "BINARY":
+			case "VARCHAR":
+			case "VARBINARY":
+				columnScript.append("(")
+							.append(size)
+							.append(")");
+				break;
+				
+			case "DECIMAL":
+				columnScript.append("(")
+							.append(size)
+							.append(",")
+							.append(decimalDigits)
+							.append(")");
+				break;
+		}
+		
+		if (isUnique()) {
+			columnScript.append(" UNIQUE");
+		}
+
+		if (!isNullable()) {
+			columnScript.append(" NOT NULL");
+		}
+		columnScript.append(",");
+
+		return(columnScript.toString());
 	}
 }
